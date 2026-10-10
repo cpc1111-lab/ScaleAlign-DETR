@@ -1,0 +1,698 @@
+diff --git a/configs/dfine/NSAD_coco.yml b/configs/dfine/NSAD_coco.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..527560dbbd36dd537b16dc5723b4187753584826
+--- /dev/null
++++ b/configs/dfine/NSAD_coco.yml
+@@ -0,0 +1,44 @@
++__include__: [
++  '../dataset/coco_detection.yml',
++  '../runtime.yml',
++  './include/dataloader.yml',
++  './include/optimizer.yml',
++  './include/dfine_hgnetv2.yml',
++]
++
++output_dir: ./output2/dfine_hgnetv2_l_coco
++
++
++HGNetv2:
++  name: 'B4'
++  return_idx: [1, 2, 3]
++  freeze_stem_only: True
++  freeze_at: 0
++  freeze_norm: True
++
++optimizer:
++  type: AdamW
++  params:
++    -
++      params: '^(?=.*backbone)(?!.*norm|bn).*$'
++      lr: 0.0000125
++    -
++      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn)).*$'
++      weight_decay: 0.
++
++  lr: 0.00025
++  betas: [0.9, 0.999]
++  weight_decay: 0.000125
++
++
++# Increase to search for the optimal ema
++epochs: 80 # 72 + 2n
++train_dataloader:
++  dataset:
++    transforms:
++      policy:
++        epoch: 72
++  collate_fn:
++    stop_epoch: 72
++    ema_restart_decay: 0.9999
++    base_size_repeat: 4
+diff --git a/configs/dfine/NSAD_enhanced_coco.yml b/configs/dfine/NSAD_enhanced_coco.yml
+new file mode 100644
+index 0000000000000000000000000000000000000000..5e5a2b3f9e2c377aa77e40d90a288fc6b7b6adbc
+--- /dev/null
++++ b/configs/dfine/NSAD_enhanced_coco.yml
+@@ -0,0 +1,69 @@
++__include__: [
++  '../dataset/coco_detection.yml',
++  '../runtime.yml',
++  './include/dataloader.yml',
++  './include/dfine_hgnetv2.yml',
++]
++
++output_dir: ./output/dfine_enhanced_coco
++
++HGNetv2:
++  name: 'B4'
++  return_idx: [1, 2, 3]
++  freeze_stem_only: True
++  freeze_at: 0
++  freeze_norm: True
++
++DFINETransformer:
++  reg_max: 40
++
++DFINECriterion:
++  reg_max: 40
++  weight_dict:
++    loss_vfl: 1
++    loss_bbox: 5
++    loss_giou: 2
++    loss_fgl: 0.3
++    loss_ddf: 1.0
++
++use_amp: True
++use_ema: True
++ema:
++  type: ModelEMA
++  decay: 0.9999
++  warmups: 1000
++
++clip_max_norm: 0.1
++
++lr_scheduler:
++  type: CosineAnnealingLR
++  T_max: 1500000
++  eta_min: 1.0e-6
++
++lr_warmup_scheduler:
++  type: LinearWarmup
++  warmup_duration: 500
++
++optimizer:
++  type: AdamW
++  params:
++    -
++      params: '^(?=.*backbone)(?!.*norm|bn).*$'
++      lr: 0.0000125
++    -
++      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn)).*$'
++      weight_decay: 0.
++  lr: 0.00025
++  betas: [0.9, 0.999]
++  weight_decay: 0.000125
++
++epochs: 100
++train_dataloader:
++  dataset:
++    transforms:
++      policy:
++        epoch: 85
++  collate_fn:
++    stop_epoch: 85
++    ema_restart_decay: 0.9998
++    base_size_repeat: 4
+diff --git a/configs/dfine/include/dfine_hgnetv2.yml b/configs/dfine/include/dfine_hgnetv2.yml
+index 91ad4a0859d85faf4748e1f822174e11e9ab3bd4..62577d67546c11b2a53f3eff83dbd01a83c6779e 100644
+--- a/configs/dfine/include/dfine_hgnetv2.yml
++++ b/configs/dfine/include/dfine_hgnetv2.yml
+@@ -5,12 +5,17 @@ criterion: DFINECriterion
+ postprocessor: DFINEPostProcessor
+ 
+ use_focal_loss: True
+-eval_spatial_size: [640, 640] # h w
++eval_spatial_size: [640, 640]  # h w
+ 
++# === 模型定义 ===
+ DFINE:
+   backbone: HGNetv2
+   encoder: HybridEncoder
+   decoder: DFINETransformer
++  scale_prior_manager:
++    type: ScalePriorManager
++    use_scale_prior: True
++    coco_train_json: dataset/annotations/instances_train_int_id_fixed.json
+ 
+ HGNetv2:
+   pretrained: True
+@@ -19,8 +24,6 @@ HGNetv2:
+ HybridEncoder:
+   in_channels: [512, 1024, 2048]
+   feat_strides: [8, 16, 32]
+-
+-  # intra
+   hidden_dim: 256
+   use_encoder_idx: [2]
+   num_encoder_layers: 1
+@@ -28,53 +31,37 @@ HybridEncoder:
+   dim_feedforward: 1024
+   dropout: 0.
+   enc_act: 'gelu'
+-
+-  # cross
+   expansion: 1.0
+   depth_mult: 1
+   act: 'silu'
+ 
+-
+ DFINETransformer:
+   feat_channels: [256, 256, 256]
+   feat_strides: [8, 16, 32]
+   hidden_dim: 256
+   num_levels: 3
+-
+   num_layers: 6
+   eval_idx: -1
+   num_queries: 300
+-
+   num_denoising: 100
+   label_noise_ratio: 0.5
+   box_noise_scale: 1.0
+-
+-  # NEW
+   reg_max: 32
+   reg_scale: 4
+-
+-  # Auxiliary decoder layers dimension scaling
+-  # "eg. If num_layers: 6 eval_idx: -4,
+-  # then layer 3, 4, 5 are auxiliary decoder layers."
+-  layer_scale: 1  # 2
+-
+-
+-  num_points: [3, 6, 3] # [4, 4, 4] [3, 6, 3]
+-  cross_attn_method: default # default, discrete
+-  query_select_method: default # default, agnostic
+-
++  layer_scale: 1
++  num_points: [3, 6, 3]
++  cross_attn_method: default
++  query_select_method: default
+ 
+ DFINEPostProcessor:
+   num_top_queries: 300
+ 
+-
+ DFINECriterion:
+   weight_dict: {loss_vfl: 1, loss_bbox: 5, loss_giou: 2, loss_fgl: 0.15, loss_ddf: 1.5}
+   losses: ['vfl', 'boxes', 'local']
+   alpha: 0.75
+   gamma: 2.0
+   reg_max: 32
+-
+   matcher:
+     type: HungarianMatcher
+     weight_dict: {cost_class: 2, cost_bbox: 5, cost_giou: 2}
+diff --git a/src/zoo/dfine/__init__.py b/src/zoo/dfine/__init__.py
+index f61af2a46ee7713025048097b6774a4e012d2751..260d7a2fe57e7f0a41e614396ca405d7b47b9548 100644
+--- a/src/zoo/dfine/__init__.py
++++ b/src/zoo/dfine/__init__.py
+@@ -9,3 +9,4 @@ from .dfine_decoder import DFINETransformer
+ from .hybrid_encoder import HybridEncoder
+ from .matcher import HungarianMatcher
+ from .postprocessor import DFINEPostProcessor
++from .scale_prior import ScalePriorManager
+diff --git a/src/zoo/dfine/dfine.py b/src/zoo/dfine/dfine.py
+index b83bd9913f7166a3da85a8db0222e7e10acf8433..c27ad70e381cfe782489023479c9eb827c010afe 100644
+--- a/src/zoo/dfine/dfine.py
++++ b/src/zoo/dfine/dfine.py
+@@ -13,35 +13,30 @@ __all__ = [
+ 
+ @register()
+ class DFINE(nn.Module):
+-    __inject__ = [
+-        "backbone",
+-        "encoder",
+-        "decoder",
+-    ]
++    __inject__ = ["backbone", "encoder", "decoder", "scale_prior_manager"]
+ 
+     def __init__(
+         self,
+         backbone: nn.Module,
+         encoder: nn.Module,
+         decoder: nn.Module,
++        scale_prior_manager=None,
+     ):
+         super().__init__()
+         self.backbone = backbone
+-        self.decoder = decoder
+         self.encoder = encoder
++        self.decoder = decoder
++        self.scale_prior_manager = scale_prior_manager
+ 
+     def forward(self, x, targets=None):
+         x = self.backbone(x)
+         x = self.encoder(x)
+         x = self.decoder(x, targets)
+-
+         return x
+ 
+-    def deploy(
+-        self,
+-    ):
++    def deploy(self):
+         self.eval()
+         for m in self.modules():
+             if hasattr(m, "convert_to_deploy"):
+                 m.convert_to_deploy()
+-        return self
++        return self
+\ No newline at end of file
+diff --git a/src/zoo/dfine/dfine_decoder.py b/src/zoo/dfine/dfine_decoder.py
+index d7c77f73ff22294163c8d0946614e4d67e038f82..a47206212767d161b9fa79a98cb128d01e843d71 100644
+--- a/src/zoo/dfine/dfine_decoder.py
++++ b/src/zoo/dfine/dfine_decoder.py
+@@ -487,6 +487,7 @@ class DFINETransformer(nn.Module):
+         reg_max=32,
+         reg_scale=4.0,
+         layer_scale=1,
++        scale_prior_manager=None,
+     ):
+         super().__init__()
+         assert len(feat_channels) <= num_levels
+@@ -494,7 +495,7 @@ class DFINETransformer(nn.Module):
+ 
+         for _ in range(num_levels - len(feat_strides)):
+             feat_strides.append(feat_strides[-1] * 2)
+-
++        self.scale_prior_manager = scale_prior_manager
+         self.hidden_dim = hidden_dim
+         scaled_dim = round(layer_scale * hidden_dim)
+         self.nhead = nhead
+@@ -519,6 +520,7 @@ class DFINETransformer(nn.Module):
+         # Transformer module
+         self.up = nn.Parameter(torch.tensor([0.5]), requires_grad=False)
+         self.reg_scale = nn.Parameter(torch.tensor([reg_scale]), requires_grad=False)
++        self.alpha = nn.Parameter(torch.tensor(-1.3863))  # log(0.2/0.8), sigmoid=0.2
+         decoder_layer = TransformerDecoderLayer(
+             hidden_dim,
+             nhead,
+@@ -778,6 +780,47 @@ class DFINETransformer(nn.Module):
+         )
+ 
+         enc_topk_bbox_unact: torch.Tensor = self.enc_bbox_head(enc_topk_memory) + enc_topk_anchors
++        if (
++                self.scale_prior_manager is not None
++                and self.scale_prior_manager.use_scale_prior
++        ):
++            if self.eval_spatial_size is not None:
++                img_h, img_w = self.eval_spatial_size
++            else:
++                img_h = img_w = 640.0
++
++            num_cats = enc_topk_logits.shape[-1]
++            device = enc_topk_logits.device
++            if not hasattr(self, '_prior_scales') or self._prior_scales.device != device:
++                prior_scale = torch.ones(num_cats, device=device)
++                prior_ar = torch.ones(num_cats, device=device)
++                for cid in range(num_cats):
++                    prior_scale[cid] = self.scale_prior_manager.get_median_scale(cid)
++                    prior_ar[cid] = self.scale_prior_manager.get_mean_ar(cid)
++                self.register_buffer('_prior_scales', prior_scale, persistent=False)
++                self.register_buffer('_prior_ars', prior_ar, persistent=False)
++
++            pred_weights = enc_topk_logits.softmax(dim=-1).detach()
++            median_s = (pred_weights * self._prior_scales).sum(dim=-1)
++            mean_ar = (pred_weights * self._prior_ars).sum(dim=-1)
++
++            typical_w = median_s * torch.sqrt(mean_ar)
++            typical_h = median_s / torch.sqrt(mean_ar)
++
++            norm_w = typical_w / img_w
++            norm_h = typical_h / img_h
++
++            current_wh = torch.sigmoid(enc_topk_bbox_unact)[..., 2:]
++
++            alpha = self.alpha.sigmoid()
++            new_wh = alpha * torch.stack([norm_w, norm_h], -1) + (1 - alpha) * current_wh
++            new_wh = new_wh.clamp(1e-6, 1 - 1e-6)
++            new_wh_logit = torch.log(new_wh / (1 - new_wh))
++
++            enc_topk_bbox_unact = torch.cat([
++                enc_topk_bbox_unact[..., :2],
++                new_wh_logit
++            ], dim=-1)
+ 
+         if self.training:
+             enc_topk_bboxes = F.sigmoid(enc_topk_bbox_unact)
+@@ -827,8 +870,6 @@ class DFINETransformer(nn.Module):
+             outputs_logits.gather(
+                 dim=1, index=topk_ind.unsqueeze(-1).repeat(1, 1, outputs_logits.shape[-1])
+             )
+-            if self.training
+-            else None
+         )
+ 
+         topk_memory = memory.gather(
+@@ -956,4 +997,4 @@ class DFINETransformer(nn.Module):
+                 "teacher_logits": teacher_logits,
+             }
+             for a, b, c, d in zip(outputs_class, outputs_coord, outputs_corners, outputs_ref)
+-        ]
++        ]
+\ No newline at end of file
+diff --git a/src/zoo/dfine/scale_prior.py b/src/zoo/dfine/scale_prior.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..3e5c17353654408b7b262bae937c3f25c38d95b7
+--- /dev/null
++++ b/src/zoo/dfine/scale_prior.py
+@@ -0,0 +1,63 @@
++import json
++import numpy as np
++from ...core import register
++
++
++@register()
++class ScalePriorManager:
++    def __init__(self, use_scale_prior=False, coco_train_json=None):
++        self.use_scale_prior = use_scale_prior
++        self.priors = {}
++        if use_scale_prior and coco_train_json is not None:
++            self.fit_from_coco_json(coco_train_json)
++
++    def fit_from_coco_json(self, coco_json_path):
++        with open(coco_json_path, 'r') as f:
++            coco = json.load(f)
++
++        boxes_by_cat = {}
++        for ann in coco['annotations']:
++            if ann.get('iscrowd', 0) == 1:
++                continue
++            cat_id = ann['category_id']
++            bbox = ann['bbox']
++            w, h = bbox[2], bbox[3]
++            if w <= 0 or h <= 0:
++                continue
++            if cat_id not in boxes_by_cat:
++                boxes_by_cat[cat_id] = {'ws': [], 'hs': []}
++            boxes_by_cat[cat_id]['ws'].append(w)
++            boxes_by_cat[cat_id]['hs'].append(h)
++
++        for cat_id, data in boxes_by_cat.items():
++            ws = np.array(data['ws'])
++            hs = np.array(data['hs'])
++            scales = np.sqrt(ws * hs)
++            aspect_ratios = ws / (hs + 1e-8)
++
++            self.priors[cat_id] = {
++                'median_scale': float(np.median(scales)),
++                'mean_ar': float(np.mean(aspect_ratios)),
++            }
++
++            # KDE for sampling (if sklearn available)
++            try:
++                from sklearn.neighbors import KernelDensity
++                log_scales = np.log(scales + 1e-8).reshape(-1, 1)
++                kde = KernelDensity(bandwidth=0.2, kernel='gaussian').fit(log_scales)
++                self.priors[cat_id]['kde'] = kde
++                self.priors[cat_id]['_raw_scales'] = scales
++            except ImportError:
++                pass
++
++        print(f"[ScalePriorManager] Fitted scale priors for {len(self.priors)} categories.")
++
++    def get_median_scale(self, cat_id):
++        if not self.use_scale_prior or cat_id not in self.priors:
++            return 1.0
++        return self.priors[cat_id]['median_scale']
++
++    def get_mean_ar(self, cat_id):
++        if not self.use_scale_prior or cat_id not in self.priors:
++            return 1.0
++        return self.priors[cat_id]['mean_ar']
+diff --git a/tools/ScalePriorManager.py b/tools/ScalePriorManager.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..82e1361df8704833f0125c3aa782142021287672
+--- /dev/null
++++ b/tools/ScalePriorManager.py
+@@ -0,0 +1,91 @@
++# scale_prior_manager.py
++import json
++import numpy as np
++import torch
++from sklearn.neighbors import KernelDensity
++
++
++class ScalePriorManager:
++    def __init__(self, use_scale_prior=False):
++        """
++        Manages nonparametric scale priors for COCO-style datasets.
++
++        Args:
++            use_scale_prior (bool): Global switch to enable/disable scale priors.
++        """
++        self.use_scale_prior = use_scale_prior
++        self.priors = {}  # {category_id: { 'kde', 'median_scale', 'mean_ar' }}
++
++    def fit_from_coco_json(self, coco_json_path):
++        """
++        Automatically fit nonparametric scale priors from COCO-format annotation file.
++
++        Args:
++            coco_json_path (str): Path to COCO .json annotation file (e.g., 'train.json').
++        """
++        if not self.use_scale_prior:
++            return
++
++        with open(coco_json_path, 'r') as f:
++            coco = json.load(f)
++
++        # Group boxes by category_id
++        boxes_by_cat = {}
++        for ann in coco['annotations']:
++            if ann.get('iscrowd', 0) == 1:
++                continue  # skip crowd annotations
++            cat_id = ann['category_id']
++            bbox = ann['bbox']  # [x, y, w, h] in COCO format
++            w, h = bbox[2], bbox[3]
++            if w <= 0 or h <= 0:
++                continue
++            if cat_id not in boxes_by_cat:
++                boxes_by_cat[cat_id] = {'ws': [], 'hs': []}
++            boxes_by_cat[cat_id]['ws'].append(w)
++            boxes_by_cat[cat_id]['hs'].append(h)
++
++        # Fit priors per category
++        for cat_id, data in boxes_by_cat.items():
++            ws = np.array(data['ws'])
++            hs = np.array(data['hs'])
++            scales = np.sqrt(ws * hs)  # geometric scale s = √(w·h)
++            aspect_ratios = ws / (hs + 1e-8)  # w / h
++
++            # Compute stats
++            median_scale = np.median(scales)
++            mean_ar = np.mean(aspect_ratios)
++
++            # Fit KDE in log-space for stability
++            log_scales = np.log(scales + 1e-8).reshape(-1, 1)
++            kde = KernelDensity(bandwidth=0.2, kernel='gaussian').fit(log_scales)
++
++            self.priors[cat_id] = {
++                'kde': kde,
++                'median_scale': float(median_scale),
++                'mean_ar': float(mean_ar),
++                '_raw_scales': scales,  # fallback sampler if KDE fails
++            }
++
++        print(f"[ScalePriorManager] Fitted scale priors for {len(self.priors)} categories.")
++
++    def sample_scale(self, cat_id):
++        """Sample a scale from the learned distribution for category `cat_id`."""
++        if not self.use_scale_prior or cat_id not in self.priors:
++            return None
++        try:
++            log_s = self.priors[cat_id]['kde'].sample(1).item()
++            return float(np.exp(log_s))
++        except Exception:
++            # Fallback to random sampling from raw data
++            raw = self.priors[cat_id]['_raw_scales']
++            return float(np.random.choice(raw))
++
++    def get_median_scale(self, cat_id):
++        if not self.use_scale_prior or cat_id not in self.priors:
++            return 1.0
++        return self.priors[cat_id]['median_scale']
++
++    def get_mean_ar(self, cat_id):
++        if not self.use_scale_prior or cat_id not in self.priors:
++            return 1.0
++        return self.priors[cat_id]['mean_ar']
+\ No newline at end of file
+diff --git a/tools/build_scale_piror.py b/tools/build_scale_piror.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e388f0ba1807f1fbdef131d9e008b64cea1357e9
+--- /dev/null
++++ b/tools/build_scale_piror.py
+@@ -0,0 +1,161 @@
++import json
++import numpy as np
++import matplotlib.pyplot as plt
++from collections import defaultdict
++from scipy.stats import gaussian_kde
++import os
++
++def extract_and_visualize_scale_priors(ann_file, save_dir=None, top_k_classes=10, dpi=150):
++    """
++    从 COCO 格式标注中提取并可视化类别级尺度先验。
++
++    参数:
++        ann_file (str): COCO 标注文件路径
++        save_dir (str): 保存统计量与可视化图的目录
++        top_k_classes (int): 可视化实例最多的前 K 个类别（避免绘图过多）
++        dpi (int): 图像分辨率
++    """
++    with open(ann_file, 'r') as f:
++        coco = json.load(f)
++
++    cat_id_to_name = {cat['id']: cat['name'] for cat in coco['categories']}
++    cat_ids = sorted(cat_id_to_name.keys())
++
++    class_scales = defaultdict(list)
++    class_ar = defaultdict(list)
++
++    for ann in coco['annotations']:
++        if ann.get('iscrowd', 0) == 1:
++            continue
++        w, h = ann['bbox'][2], ann['bbox'][3]
++        if w <= 0 or h <= 0:
++            continue
++        scale = np.sqrt(w * h)
++        ar = w / h
++        class_scales[ann['category_id']].append(scale)
++        class_ar[ann['category_id']].append(ar)
++
++    # 按实例数量排序，选 top-k 可视化
++    class_counts = {cid: len(scales) for cid, scales in class_scales.items()}
++    top_classes = sorted(class_counts.items(), key=lambda x: -x[1])[:top_k_classes]
++    top_cat_ids = [cid for cid, _ in top_classes]
++
++    priors = {}
++    os.makedirs(save_dir, exist_ok=True)
++
++    # 准备保存的统计量（不含 KDE）
++    stats_to_save = {}
++
++    for cat_id in cat_ids:
++        scales = np.array(class_scales[cat_id])
++        ars = np.array(class_ar[cat_id])
++
++        if len(scales) == 0:
++            median_scale = 0.0
++            mean_ar = 1.0
++            kde = None
++        else:
++            median_scale = np.median(scales)
++            mean_ar = np.mean(ars)
++            if len(scales) >= 2:
++                try:
++                    kde = gaussian_kde(scales, bw_method='scott')
++                except np.linalg.LinAlgError:
++                    kde = None
++            else:
++                kde = None
++
++        priors[cat_id] = {
++            'scales': scales,
++            'ars': ars,
++            'median_scale': float(median_scale),
++            'mean_ar': float(mean_ar),
++            'kde': kde,
++            'category_name': cat_id_to_name.get(cat_id, f'cat_{cat_id}'),
++            'count': len(scales)
++        }
++
++        # 保存统计量（用于后续加载）
++        stats_to_save[cat_id] = {
++            'category_name': priors[cat_id]['category_name'],
++            'num_instances': int(priors[cat_id]['count']),
++            'median_scale': priors[cat_id]['median_scale'],
++            'mean_ar': priors[cat_id]['mean_ar']
++        }
++
++    # 保存 JSON
++    with open(os.path.join(save_dir, 'scale_priors.json'), 'w') as f:
++        json.dump(stats_to_save, f, indent=2)
++
++    # ===== 可视化 =====
++    for cat_id in top_cat_ids:
++        info = priors[cat_id]
++        if info['count'] == 0:
++            continue
++
++        fig, axs = plt.subplots(1, 2, figsize=(12, 4), dpi=dpi)
++        name = info['category_name']
++        scales = info['scales']
++        ars = info['ars']
++        median_s = info['median_scale']
++        mean_ar = info['mean_ar']
++
++        # --- 左图：尺度分布 + KDE ---
++        axs[0].hist(scales, bins=50, density=True, alpha=0.6, color='skyblue', edgecolor='k', linewidth=0.5, label='Empirical')
++        if info['kde'] is not None:
++            s_grid = np.linspace(scales.min(), scales.max(), 300)
++            kde_vals = info['kde'](s_grid)
++            axs[0].plot(s_grid, kde_vals, 'r-', lw=2, label='KDE')
++        axs[0].axvline(median_s, color='g', linestyle='--', lw=2, label=f'Median = {median_s:.1f}')
++        axs[0].set_xlabel('Geometric Scale $s = \\sqrt{w \\cdot h}$')
++        axs[0].set_ylabel('Density')
++        axs[0].set_title(f'Scale Distribution: {name} (N={info["count"]})')
++        axs[0].legend()
++        axs[0].grid(True, linestyle='--', alpha=0.5)
++
++        # --- 右图：长宽比分布 ---
++        axs[1].hist(ars, bins=50, color='lightcoral', alpha=0.7, edgecolor='k', linewidth=0.5)
++        axs[1].axvline(mean_ar, color='b', linestyle='--', lw=2, label=f'Mean AR = {mean_ar:.2f}')
++        axs[1].set_xlabel('Aspect Ratio $r = w / h$')
++        axs[1].set_ylabel('Count')
++        axs[1].set_title(f'Aspect Ratio Distribution: {name}')
++        axs[1].legend()
++        axs[1].grid(True, linestyle='--', alpha=0.5)
++
++        plt.tight_layout()
++        vis_path = os.path.join(save_dir, f'scale_prior_vis_cat{cat_id}_{name}.png')
++        plt.savefig(vis_path, bbox_inches='tight')
++        plt.close(fig)
++        print(f"Saved visualization for category '{name}' (ID={cat_id}) to {vis_path}")
++
++    print(f"\n✅ 共可视化 {len(top_cat_ids)} 个类别，结果保存至: {save_dir}")
++    return priors
++
++
++# -----------------------------
++# 示例用法
++# -----------------------------
++if __name__ == "__main__":
++    ann_file = "dataset/annotations/instances_train_int_id_fixed.json"  # 替换为你的 COCO 标注路径
++    save_dir = "scale_priors_output"
++
++    # 提取并可视化
++    priors = extract_and_visualize_scale_priors(
++        ann_file,
++        save_dir=save_dir,
++        top_k_classes=80,
++        dpi=150
++    )
++
++    # 示例：查看飞机类（COCO 中 cat_id=5）
++    if 1 in priors and priors[1]['count'] > 0:
++        info = priors[1]
++        print(f"\n�� 飞机类别统计:")
++        print(f"  - 实例数: {info['count']}")
++        print(f"  - 中位尺度: {info['median_scale']:.2f}")
++        print(f"  - 平均长宽比 (w/h): {info['mean_ar']:.2f}")
++        if info['kde'] is not None:
++            s_sample = info['kde'].resample(size=1).item()
++            w = s_sample * np.sqrt(info['mean_ar'])
++            h = s_sample / np.sqrt(info['mean_ar'])
++            print(f"  - KDE 采样示例 (w, h): ({w:.1f}, {h:.1f})")

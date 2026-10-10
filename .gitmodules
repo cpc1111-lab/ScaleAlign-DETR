@@ -1,0 +1,9 @@
+[submodule "third_party/DINO"]
+	path = third_party/DINO
+	url = https://github.com/IDEA-Research/DINO.git
+[submodule "third_party/RF-DETR"]
+	path = third_party/RF-DETR
+	url = https://github.com/roboflow/rf-detr.git
+[submodule "third_party/D-FINE"]
+	path = third_party/D-FINE
+	url = https://github.com/Peterande/D-FINE.git

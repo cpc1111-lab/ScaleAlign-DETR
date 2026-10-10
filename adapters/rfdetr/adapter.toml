@@ -1,0 +1,12 @@
+[adapter]
+name = "ScaleAlign for RF-DETR"
+patch = "scalealign.patch"
+patch_sha256 = "b957eb2e5123776c6bcf68515e68378538ed0be9b010ef967e7627d2a68a5680"
+
+[upstream]
+url = "https://github.com/roboflow/rf-detr.git"
+submodule = "third_party/RF-DETR"
+base_commit = "c107a748bbf369ad455cd41d85b9c91a5a0ecbad"
+
+[source]
+commit = "28fa2b82675f7380099b7c592d7962eca44cf2e0"

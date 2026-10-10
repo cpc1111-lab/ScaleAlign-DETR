@@ -1,0 +1,12 @@
+[adapter]
+name = "ScaleAlign for D-FINE"
+patch = "scalealign.patch"
+patch_sha256 = "0c55ee6a8ea90bedfd876b6d503dccafda2fc1dcf98e222c22a06264de43b0e0"
+
+[upstream]
+url = "https://github.com/Peterande/D-FINE.git"
+submodule = "third_party/D-FINE"
+base_commit = "d6694750683b0c7e9f523ba6953d16f112a376ae"
+
+[source]
+commit = "2c2276c96a305d21613dc37928d52e49f6d819ec"

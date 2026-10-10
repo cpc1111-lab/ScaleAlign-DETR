@@ -19,11 +19,11 @@
 - Create: `pyproject.toml`
 - Create: `.gitignore`
 
-- [ ] Write tests asserting that all three manifests exist, use 40-character base commits, reference existing patches, and match SHA-256 digests.
-- [ ] Run `python -m pytest tests/test_manifests.py -q` and confirm failure because the package and manifests do not exist.
-- [ ] Implement typed manifest loading with `tomllib`, path containment checks, digest validation, and host enumeration.
-- [ ] Run the test again and confirm that only missing adapter assets remain.
-- [ ] Commit the repository contract.
+- [x] Write tests asserting that all three manifests exist, use 40-character base commits, reference existing patches, and match SHA-256 digests.
+- [x] Run `python -m pytest tests/test_manifests.py -q` and confirm failure because the package and manifests do not exist.
+- [x] Implement typed manifest loading with `tomllib`, path containment checks, digest validation, and host enumeration.
+- [x] Run the test again and confirm that only missing adapter assets remain.
+- [x] Commit the repository contract.
 
 ### Task 2: Pinned upstream submodules
 
@@ -32,10 +32,10 @@
 - Create gitlinks: `third_party/DINO`, `third_party/RF-DETR`, `third_party/D-FINE`
 - Modify: `tests/test_manifests.py`
 
-- [ ] Add a failing test asserting each submodule URL and gitlink revision equals its manifest.
-- [ ] Run the focused test and confirm failure before adding submodules.
-- [ ] Add official upstream submodules and check out DINO `d84a491d41898b3befd8294d1cf2614661fc0953`, RF-DETR `c107a748bbf369ad455cd41d85b9c91a5a0ecbad`, and D-FINE `d6694750683b0c7e9f523ba6953d16f112a376ae`.
-- [ ] Re-run the focused test and commit the pinned upstreams.
+- [x] Add a failing test asserting each submodule URL and gitlink revision equals its manifest.
+- [x] Run the focused test and confirm failure before adding submodules.
+- [x] Add official upstream submodules and check out DINO `d84a491d41898b3befd8294d1cf2614661fc0953`, RF-DETR `c107a748bbf369ad455cd41d85b9c91a5a0ecbad`, and D-FINE `d6694750683b0c7e9f523ba6953d16f112a376ae`.
+- [x] Re-run the focused test and commit the pinned upstreams.
 
 ### Task 3: Migrate host code as deterministic adapters
 
@@ -48,11 +48,11 @@
 - Create: `adapters/dfine/scalealign.patch`
 - Modify: `tests/test_manifests.py`
 
-- [ ] Add a failing clean-application test that copies each pinned tree to a temporary Git worktree and runs `git apply --check` on its adapter patch.
-- [ ] Generate binary-safe patches from temporary indexes so tracked changes and explicitly selected untracked ScaleAlign files are included without changing source repository indexes.
-- [ ] Exclude checkpoints, datasets, environments, caches, generated images, experiment directories, personal paths, and unrelated planning documents.
-- [ ] Write manifests with exact base revisions, patch paths, SHA-256 digests, and source snapshot revisions.
-- [ ] Run manifest and clean-application tests, then commit all three adapters.
+- [x] Add a failing clean-application test that copies each pinned tree to a temporary Git worktree and runs `git apply --check` on its adapter patch.
+- [x] Generate binary-safe patches from temporary indexes so tracked changes and explicitly selected untracked ScaleAlign files are included without changing source repository indexes.
+- [x] Exclude checkpoints, datasets, environments, caches, generated images, experiment directories, personal paths, and unrelated planning documents.
+- [x] Write manifests with exact base revisions, patch paths, SHA-256 digests, and source snapshot revisions.
+- [x] Run manifest and clean-application tests, then commit all three adapters.
 
 ### Task 4: Idempotent bootstrap command
 
@@ -61,10 +61,10 @@
 - Create: `scalealign_repo/bootstrap.py`
 - Create: `scripts/bootstrap.py`
 
-- [ ] Add failing tests for dry-run validation, first application, repeated application, wrong base revision, dirty-tree refusal, and digest mismatch.
-- [ ] Implement validation and application using argument arrays rather than shell interpolation.
-- [ ] Record `.scalealign-adapter.json` receipts inside applied submodules and use the receipt plus patch reverse-check to recognize an already-applied adapter.
-- [ ] Run `python -m pytest tests/test_bootstrap.py -q`, then run the complete test suite and commit.
+- [x] Add failing tests for dry-run validation, first application, repeated application, wrong base revision, dirty-tree refusal, and digest mismatch.
+- [x] Implement validation and application using argument arrays rather than shell interpolation.
+- [x] Record `.scalealign-adapter.json` receipts inside applied submodules and use the receipt plus patch reverse-check to recognize an already-applied adapter.
+- [x] Run `python -m pytest tests/test_bootstrap.py -q`, then run the complete test suite and commit.
 
 ### Task 5: Verification and user documentation
 
@@ -78,12 +78,12 @@
 - Create: `CITATION.cff`
 - Modify: `docs/specs/2026-10-10-standalone-repository-design.md`
 
-- [ ] Add failing policy tests for forbidden large files, absolute workstation paths, credentials, missing attribution, and stale patch hashes.
-- [ ] Implement repository verification and concise CLI output.
-- [ ] Document clone, submodule setup, adapter bootstrap, host-specific training and evaluation entrypoints, and artifact exclusions.
-- [ ] Remove special-status terminology from the design and document all adapters uniformly.
-- [ ] Run `python -m pytest -q`, `python scripts/verify.py`, and `git diff --check`.
-- [ ] Commit documentation and verification tooling.
+- [x] Add failing policy tests for forbidden large files, absolute workstation paths, credentials, missing attribution, and stale patch hashes.
+- [x] Implement repository verification and concise CLI output.
+- [x] Document clone, submodule setup, adapter bootstrap, host-specific training and evaluation entrypoints, and artifact exclusions.
+- [x] Remove special-status terminology from the design and document all adapters uniformly.
+- [x] Run `python -m pytest -q`, `python scripts/verify.py`, and `git diff --check`.
+- [x] Commit documentation and verification tooling.
 
 ### Task 6: Publish migrated repository
 

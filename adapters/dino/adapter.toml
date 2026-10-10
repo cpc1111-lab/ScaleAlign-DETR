@@ -1,0 +1,12 @@
+[adapter]
+name = "ScaleAlign for DINO"
+patch = "scalealign.patch"
+patch_sha256 = "1ab9f9b549ba0c155e7cdab933b93f2b61bdc2baa926f5812bc34b6720496e9d"
+
+[upstream]
+url = "https://github.com/IDEA-Research/DINO.git"
+submodule = "third_party/DINO"
+base_commit = "d84a491d41898b3befd8294d1cf2614661fc0953"
+
+[source]
+commit = "a4c4508d0ef6b16f41bd9386cd1cdf44ddf52eb3"

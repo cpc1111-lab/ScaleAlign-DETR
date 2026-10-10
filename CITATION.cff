@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use ScaleAlign-DETR, cite this repository and the detector host you use."
+title: "ScaleAlign-DETR"
+type: software
+authors:
+  - family-names: "cpc"
+repository-code: "https://github.com/cpc1111-lab/ScaleAlign-DETR"
+license: Apache-2.0
+version: 0.1.0
+date-released: 2026-10-10
