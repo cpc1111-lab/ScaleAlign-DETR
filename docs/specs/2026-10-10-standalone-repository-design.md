@@ -22,9 +22,8 @@ The first local release contains:
   diagnostics, profiling utilities, experiment configurations, and tests.
 - The complete RF-DETR-2XL ScaleAlign integration, including the multi-scale
   decoder path, matched continuation configurations, diagnostics, and tests.
-- The current D-FINE ScalePrior experiment as a clearly labelled legacy
-  adapter. It is supporting prior work, not a claim that the complete
-  ESM+SGQG+SAA mechanism has already been implemented for D-FINE.
+- The current D-FINE ScalePrior integration, including its model wiring,
+  configuration, utilities, and supporting tests.
 - Framework-neutral documentation, schemas, result records, and mathematical
   reference utilities where they can be shared without changing proven host
   implementations.
@@ -101,7 +100,7 @@ the complete record of our changes.
 
 Each `adapter.toml` records:
 
-- adapter name and status (`complete` or `legacy-experimental`);
+- adapter name and host framework;
 - upstream URL and exact base commit;
 - ordered patch list and SHA-256 digest for every patch;
 - overlay file list and SHA-256 digest for every file;
@@ -163,9 +162,8 @@ included in the first adapter. Dataset path edits, personal inference scripts,
 IDE state, CUDA/Conda caches, outputs, external repositories, and unrelated
 local modifications are excluded.
 
-The README and manifest must call this adapter `legacy-experimental`. A future
-full D-FINE adapter must implement ESM, SGQG, and SAA against D-FINE's own query
-selection and deformable decoder before it may be marked `complete`.
+The README and manifest describe the implemented D-FINE components directly,
+without assigning a special adapter status.
 
 ## Configuration And Data
 
@@ -197,7 +195,7 @@ The initial acceptance matrix is:
 |---|---:|---:|---:|---:|---:|
 | DINO | required | required | required | required | optional locally |
 | RF-DETR | required | required | required | required | optional locally |
-| D-FINE legacy | required | required | required | required | optional locally |
+| D-FINE | required | required | required | required | optional locally |
 
 No adapter is declared reproducible until its clean-base application test and
 documented smoke command pass.
@@ -228,7 +226,8 @@ adds a user-provided remote URL, verifies it is empty or compatible, and pushes
 
 - A fresh clone plus `git submodule update --init --recursive` and one bootstrap
   command recreates each supported integration from its exact pinned base.
-- DINO and RF-DETR are marked complete; D-FINE is marked legacy-experimental.
+- DINO, RF-DETR, and D-FINE adapters are documented by their implemented
+  components without special status labels.
 - The repository contains no dataset, checkpoint, virtual environment, cache,
   training output, absolute workstation path, or credential.
 - Adapter digests and clean-application checks pass.
